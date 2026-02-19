@@ -1,57 +1,46 @@
-// Test Garage S3 with real credentials
-console.log('🧪 Testing Garage S3 with real credentials...\n');
+// Test Garage S3 upload - matches actual storage.service.ts
+console.log('🧪 Testing Garage S3 upload...\n');
 
-const KEY_ID = 'GKae8b45e0b9dd3d00e9621824';
-const SECRET = 'f7835124cd9fd29f7b389cb15fac938c5b067508a91a07b1c77d0771ae4756bc';
+const KEY_ID = process.env.STORAGE_ACCESS_KEY;
+const SECRET = process.env.STORAGE_SECRET_KEY;
+const ENDPOINT = `http://${process.env.STORAGE_HOST}:${process.env.STORAGE_PORT}`;
+const BUCKET = process.env.STORAGE_BUCKET || 'dev';
 
-const { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } = await import('bun');
+console.log('Config:', { ENDPOINT, BUCKET });
+
+const { S3Client } = await import('bun');
 
 const s3 = new S3Client({
-	endpoint: 'http://localhost:3900',
+	endpoint: ENDPOINT,
 	accessKeyId: KEY_ID,
 	secretAccessKey: SECRET,
 	region: 'garage',
 	forcePathStyle: true
 });
 
-const bucket = 'dev';
 const testKey = 'test-' + Date.now() + '.txt';
 const testContent = 'Hello from TofuStack!';
 
 try {
-	// Upload test file
+	// Upload - using Bun's S3Client.write() like storage.service.ts
 	console.log(`   Uploading ${testKey}...`);
-	const uploadCmd = new PutObjectCommand({
-		Bucket: bucket,
-		Key: testKey,
-		Body: testContent,
-		ContentType: 'text/plain'
+	await s3.write(`s3://${BUCKET}/${testKey}`, testContent, {
+		contentType: 'text/plain'
 	});
-
-	await s3.send(uploadCmd);
 	console.log(`   ✅ Upload successful!`);
 
-	// Download to verify
+	// Download
 	console.log(`   Downloading ${testKey}...`);
-	const getCmd = new GetObjectCommand({
-		Bucket: bucket,
-		Key: testKey
-	});
-	const response = await s3.send(getCmd);
-	const downloaded = await response.text();
+	const file = s3.file(`s3://${BUCKET}/${testKey}`);
+	const downloaded = await file.text();
 	console.log(`   Downloaded: ${downloaded}`);
 
 	// Delete
 	console.log(`   Deleting ${testKey}...`);
-	const deleteCmd = new DeleteObjectCommand({
-		Bucket: bucket,
-		Key: testKey
-	});
-	await s3.send(deleteCmd);
+	await s3.unlink(`s3://${BUCKET}/${testKey}`);
 	console.log(`   ✅ Deleted!`);
 
-	console.log(`\n✅ Garage S3 fully working!`);
+	console.log(`\n✅ Garage S3 upload working!`);
 } catch (e) {
 	console.log(`   ❌ Error: ${e.message}`);
-	console.log(e.stack);
 }
