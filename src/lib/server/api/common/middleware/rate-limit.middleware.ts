@@ -2,11 +2,9 @@ import { rateLimiter } from 'hono-rate-limiter';
 import { RedisStore } from 'rate-limit-redis';
 import { Container } from '@needle-di/core';
 import { RedisService } from '../../databases/redis/redis.service';
-import type { Context } from 'hono';
-import type { HonoEnv } from '../utils/hono';
 
 const container = new Container();
-const client = container.get(RedisService).redis;
+const redisClient = container.get(RedisService).client;
 
 export function rateLimit({
 	limit,
@@ -18,18 +16,20 @@ export function rateLimit({
 	key?: string;
 }) {
 	return rateLimiter({
-		windowMs: minutes * 60 * 1000, // every x minutes
-		limit, // Limit each IP to 100 requests per `window` (here, per 15 minutes).
-		standardHeaders: 'draft-6', // draft-6: `RateLimit-*` headers; draft-7: combined `RateLimit` header
-		keyGenerator: (c: Context<HonoEnv>) => {
+		windowMs: minutes * 60 * 1000,
+		limit,
+		standardHeaders: 'draft-6',
+		keyGenerator: (c) => {
 			const clientKey = c.var.session?.userId || c.req.header('x-forwarded-for');
 			const pathKey = key || c.req.routePath;
 			return `${clientKey}_${pathKey}`;
-		}, // Method to generate custom identifiers for clients.
-		// Redis store configuration
+		},
 		store: new RedisStore({
-			// @ts-expect-error - Known issue: the `call` function is not present in @types/ioredis
-			sendCommand: (...args: string[]) => client.call(...args)
+			// Rate-limit-redis calls: sendCommand('CMD', 'arg1', 'arg2')
+			// Bun's RedisClient.send() expects: send('CMD', ['arg1', 'arg2'])
+			sendCommand: (command: string, ...args: string[]) => {
+				return redisClient.send(command, args);
+			}
 		}) as never
 	});
 }

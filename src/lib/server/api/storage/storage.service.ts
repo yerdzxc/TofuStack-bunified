@@ -1,65 +1,61 @@
 import { inject, injectable } from '@needle-di/core';
+import { S3Client } from 'bun';
 import { ConfigService } from '../common/configs/config.service';
 import { generateId } from '../common/utils/crypto';
-import { Client } from 'minio';
 import sharp, { type ResizeOptions } from 'sharp';
-import { bucketPolicy } from './storage.configs';
 
 type Upload = {
-  file: File;
-  key?: string;
-  resizeOptions?: ResizeOptions;
+	file: File;
+	key?: string;
+	resizeOptions?: ResizeOptions;
 };
 
 @injectable()
 export class StorageService {
-  private readonly minioClient: Client;
-  private readonly bucket = 'dev';
+	private readonly s3Client: S3Client;
+	private readonly bucket: string;
 
-  constructor(private configService = inject(ConfigService)) {
-    this.minioClient = new Client({
-      endPoint: this.configService.envs.STORAGE_HOST,
-      port: this.configService.envs.STORAGE_PORT,
-      useSSL: false,
-      accessKey: this.configService.envs.STORAGE_ACCESS_KEY,
-      secretKey: this.configService.envs.STORAGE_SECRET_KEY
-    });
-  }
+	constructor(private configService = inject(ConfigService)) {
+		this.bucket = this.configService.envs.STORAGE_BUCKET || 'dev';
+		this.s3Client = new S3Client({
+			endpoint: this.configService.envs.STORAGE_HOST,
+			port: this.configService.envs.STORAGE_PORT,
+			accessKeyId: this.configService.envs.STORAGE_ACCESS_KEY,
+			secretAccessKey: this.configService.envs.STORAGE_SECRET_KEY,
+			region: 'garage',
+			forcePathStyle: true
+		});
+	}
 
-  async configure() {
-    console.info('configuring storage...');
-    const bucketExists = await this.minioClient.bucketExists(this.bucket);
+	async configure() {
+		console.info(`Storage configured with S3 bucket: ${this.bucket}`);
+	}
 
-    if (!bucketExists) {
-      console.info('creating storage bucket...');
-      await this.minioClient.makeBucket(this.bucket);
-      await this.minioClient.setBucketPolicy(this.bucket, JSON.stringify(bucketPolicy));
-    }
-  }
+	async upload({ file, resizeOptions, key }: Upload) {
+		let buffer = await this.convertToBuffer(file);
+		if (resizeOptions) {
+			buffer = await this.resizeImage(buffer, resizeOptions);
+		}
 
-  async upload({ file, resizeOptions, key }: Upload) {
-    let buffer = await this.convertToBuffer(file);
-    if (resizeOptions) {
-      buffer = await this.resizeImage(buffer, resizeOptions);
-    }
+		const fileKey = key || generateId();
 
-    const fileKey = key || generateId();
-    await this.minioClient.putObject(this.bucket, fileKey, buffer, file.size, {
-      'Content-Type': file.type
-    });
-    return { key: fileKey };
-  }
+		await this.s3Client.write(`s3://${this.bucket}/${fileKey}`, buffer, {
+			contentType: file.type
+		});
 
-  async remove(key: string) {
-    return this.minioClient.removeObject(this.bucket, key);
-  }
+		return { key: fileKey };
+	}
 
-  private async resizeImage(fileBuffer: Buffer, resizeOptions: ResizeOptions) {
-    return sharp(fileBuffer).resize(resizeOptions).toBuffer();
-  }
+	async remove(key: string) {
+		await this.s3Client.unlink(`s3://${this.bucket}/${key}`);
+	}
 
-  private async convertToBuffer(file: File) {
-    const arrayBuffer = await file.arrayBuffer();
-    return Buffer.from(arrayBuffer);
-  }
+	private async resizeImage(fileBuffer: Buffer, resizeOptions: ResizeOptions) {
+		return sharp(fileBuffer).resize(resizeOptions).toBuffer();
+	}
+
+	private async convertToBuffer(file: File) {
+		const arrayBuffer = await file.arrayBuffer();
+		return Buffer.from(arrayBuffer);
+	}
 }

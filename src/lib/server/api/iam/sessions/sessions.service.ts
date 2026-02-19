@@ -4,89 +4,86 @@ import { ConfigService } from '../../common/configs/config.service';
 import type { CreateSessionDto } from './dtos/create-session-dto';
 import type { SessionDto } from './dtos/session.dto';
 import { SessionsRepository } from './sessions.repository';
-import dayjs from 'dayjs';
-import relativeTime from 'dayjs/plugin/relativeTime';
 import { RequestContextService } from '../../common/services/request-context.service';
 import { generateId } from '../../common/utils/crypto';
-dayjs.extend(relativeTime);
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const FIFTEEN_DAYS_MS = 15 * 24 * 60 * 60 * 1000;
 
 @injectable()
 export class SessionsService {
-  private readonly sessionCookieName = 'session';
+	private readonly sessionCookieName = 'session';
 
-  constructor(
-    private sessionsRepository = inject(SessionsRepository),
-    private requestContextService = inject(RequestContextService),
-    private configService = inject(ConfigService)
-  ) {}
+	constructor(
+		private sessionsRepository = inject(SessionsRepository),
+		private requestContextService = inject(RequestContextService),
+		private configService = inject(ConfigService)
+	) {}
 
-  setSessionCookie(session: SessionDto) {
-    return setSignedCookie(
-      this.requestContextService.getContext(),
-      this.sessionCookieName,
-      session.id,
-      this.configService.envs.SIGNING_SECRET,
-      {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: this.configService.envs.ENV === 'prod',
-        path: '/',
-        expires: session.expiresAt
-      }
-    );
-  }
+	setSessionCookie(session: SessionDto) {
+		return setSignedCookie(
+			this.requestContextService.getContext(),
+			this.sessionCookieName,
+			session.id,
+			this.configService.envs.SIGNING_SECRET,
+			{
+				httpOnly: true,
+				sameSite: 'lax',
+				secure: this.configService.envs.ENV === 'prod',
+				path: '/',
+				expires: session.expiresAt
+			}
+		);
+	}
 
-  async getSessionCookie(): Promise<string | null> {
-    const session = await getSignedCookie(
-      this.requestContextService.getContext(),
-      this.configService.envs.SIGNING_SECRET,
-      this.sessionCookieName
-    );
-    if (!session) return null;
-    return session;
-  }
+	async getSessionCookie(): Promise<string | null> {
+		const session = await getSignedCookie(
+			this.requestContextService.getContext(),
+			this.configService.envs.SIGNING_SECRET,
+			this.sessionCookieName
+		);
+		if (!session) return null;
+		return session;
+	}
 
-  deleteSessionCookie() {
-    return deleteCookie(this.requestContextService.getContext(), this.sessionCookieName);
-  }
+	deleteSessionCookie() {
+		return deleteCookie(this.requestContextService.getContext(), this.sessionCookieName);
+	}
 
-  async createSession(userId: string): Promise<SessionDto> {
-    const session: CreateSessionDto = {
-      id: this.generateSessionToken(),
-      userId,
-      createdAt: dayjs().toDate(),
-      expiresAt: dayjs().add(30, 'day').toDate()
-    };
+	async createSession(userId: string): Promise<SessionDto> {
+		const now = new Date();
+		const session: CreateSessionDto = {
+			id: this.generateSessionToken(),
+			userId,
+			createdAt: now,
+			expiresAt: new Date(now.getTime() + THIRTY_DAYS_MS)
+		};
 
-    await this.sessionsRepository.create(session);
-    return { ...session, fresh: true };
-  }
+		await this.sessionsRepository.create(session);
+		return { ...session, fresh: true };
+	}
 
-  async validateSession(sessionId: string): Promise<SessionDto | null> {
-    // Check if session exists
-    const existingSession = await this.sessionsRepository.get(sessionId);
+	async validateSession(sessionId: string): Promise<SessionDto | null> {
+		const existingSession = await this.sessionsRepository.get(sessionId);
 
-    // If session does not exist, return null
-    if (!existingSession) return null;
+		if (!existingSession) return null;
 
-    // If session exists, check if it should be extended
-    const shouldExtendSession = dayjs(existingSession.expiresAt).diff(Date.now(), 'day') < 15;
+		const shouldExtendSession = existingSession.expiresAt.getTime() - Date.now() < FIFTEEN_DAYS_MS;
 
-    // If session should be extended, update the session in the database
-    if (shouldExtendSession) {
-      existingSession.expiresAt = dayjs().add(30, 'day').toDate();
-      await this.sessionsRepository.create({ ...existingSession });
-      return { ...existingSession, fresh: true };
-    }
+		if (shouldExtendSession) {
+			existingSession.expiresAt = new Date(Date.now() + THIRTY_DAYS_MS);
+			await this.sessionsRepository.create({ ...existingSession });
+			return { ...existingSession, fresh: true };
+		}
 
-    return { ...existingSession, fresh: false };
-  }
+		return { ...existingSession, fresh: false };
+	}
 
-  async invalidateSession(sessionId: string): Promise<void> {
-    await this.sessionsRepository.delete(sessionId);
-  }
+	async invalidateSession(sessionId: string): Promise<void> {
+		await this.sessionsRepository.delete(sessionId);
+	}
 
-  private generateSessionToken(): string {
-    return generateId();
-  }
+	private generateSessionToken(): string {
+		return generateId();
+	}
 }
