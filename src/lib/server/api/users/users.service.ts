@@ -18,7 +18,7 @@ export class UsersService {
 		return this.usersRepository.update(userId, { email: updateUserDto?.email });
 	}
 
-	async create(email: string) {
-		return this.usersRepository.create({ avatar: null, email });
+	async create(email: string, password?: string) {
+		return this.usersRepository.create({ avatar: null, email, password });
 	}
 }

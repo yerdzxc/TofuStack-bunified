@@ -11,6 +11,7 @@ export const usersTable = pgTable('users', {
 		.primaryKey()
 		.$defaultFn(() => generateId()),
 	email: citext().unique().notNull(),
+	password: text(),
 	avatar: text(),
 	...timestamps
 });

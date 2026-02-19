@@ -1,15 +1,14 @@
 import type { MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
+import { Container } from '@needle-di/core';
+import { PasetoService } from '../services/paseto.service';
 import { Unauthorized } from '../utils/exceptions';
-import type { SessionDto } from '../../iam/sessions/dtos/session.dto';
+import type { TokenPayload } from '../services/paseto.service';
 
-/* ---------------------------------- Types --------------------------------- */
 type AuthStates = 'session' | 'none';
 type AuthedReturnType = typeof authed;
 type UnauthedReturnType = typeof unauthed;
 
-/* ------------------- Overloaded function implementation ------------------- */
-// we have to overload the implementation to provide the correct return type
 export function authState(state: 'session'): AuthedReturnType;
 export function authState(state: 'none'): UnauthedReturnType;
 export function authState(state: AuthStates): AuthedReturnType | UnauthedReturnType {
@@ -17,26 +16,35 @@ export function authState(state: AuthStates): AuthedReturnType | UnauthedReturnT
   return unauthed;
 }
 
-/* ------------------------------ Require Auth ------------------------------ */
 const authed: MiddlewareHandler<{
   Variables: {
-    session: SessionDto;
+    user: TokenPayload | null;
   };
 }> = createMiddleware(async (c, next) => {
-  if (!c.var.session) {
-    throw Unauthorized('You must be logged in to access this resource');
+  const authHeader = c.req.header('Authorization');
+  
+  if (!authHeader?.startsWith('Bearer ')) {
+    throw Unauthorized('Authorization header required');
   }
+
+  const token = authHeader.slice(7);
+
+  try {
+    const container = new Container();
+    const pasetoService = container.get(PasetoService);
+    const payload = await pasetoService.verifyAccessToken(token);
+    c.set('user', payload);
+  } catch {
+    throw Unauthorized('Invalid or expired token');
+  }
+
   return next();
 });
 
-/* ---------------------------- Require Unauthed ---------------------------- */
 const unauthed: MiddlewareHandler<{
   Variables: {
-    session: null;
+    user: TokenPayload | null;
   };
 }> = createMiddleware(async (c, next) => {
-  if (c.var.session) {
-    throw Unauthorized('You must be logged out to access this resource');
-  }
   return next();
 });

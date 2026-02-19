@@ -2,90 +2,124 @@ import { inject, injectable } from '@needle-di/core';
 import { LoginRequestsRepository } from './login-requests.repository';
 import { MailerService } from '../../mail/mailer.service';
 import { LoginVerificationEmail } from '../../mail/templates/login-verification.template';
-import { BadRequest } from '../../common/utils/exceptions';
+import { BadRequest, Unauthorized } from '../../common/utils/exceptions';
 import { WelcomeEmail } from '../../mail/templates/welcome.template';
-import { SessionsService } from '../sessions/sessions.service';
 import type { VerifyLoginRequestDto } from './dtos/verify-login-request.dto';
 import type { CreateLoginRequestDto } from './dtos/create-login-request.dto';
+import type { LoginWithPasswordDto } from './dtos/login-with-password.dto';
 import { UsersService } from '../../users/users.service';
 import { UsersRepository } from '../../users/users.repository';
 import { VerificationCodesService } from '../../common/services/verification-codes.service';
+import { PasetoService } from '../../common/services/paseto.service';
+import { HashingService } from '../../common/services/hashing.service';
 
 @injectable()
 export class LoginRequestsService {
-  constructor(
-    private loginRequestsRepository = inject(LoginRequestsRepository),
-    private usersRepository = inject(UsersRepository),
-    private verificationCodesService = inject(VerificationCodesService),
-    private usersService = inject(UsersService),
-    private sessionsService = inject(SessionsService),
-    private mailer = inject(MailerService)
-  ) {}
+	constructor(
+		private loginRequestsRepository = inject(LoginRequestsRepository),
+		private usersRepository = inject(UsersRepository),
+		private verificationCodesService = inject(VerificationCodesService),
+		private usersService = inject(UsersService),
+		private pasetoService = inject(PasetoService),
+		private hashingService = inject(HashingService),
+		private mailer = inject(MailerService)
+	) {}
 
-  async verify({ email, code }: VerifyLoginRequestDto) {
-    // find the hashed verification code for the email
-    const loginRequest = await this.loginRequestsRepository.get(email);
+	async loginWithPassword({ email, password }: LoginWithPasswordDto) {
+		const user = await this.usersRepository.findOneByEmail(email);
 
-    // if no hashed code is found, the request is invalid
-    if (!loginRequest) throw BadRequest('Invalid code');
+		if (!user || !user.password) {
+			throw Unauthorized('Invalid credentials');
+		}
 
-    // verify the code
-    const isValid = await this.verificationCodesService.verify({
-      verificationCode: code,
-      hashedVerificationCode: loginRequest.hashedCode
-    });
+		const isValid = await this.hashingService.compare(password, user.password);
 
-    // if the code is invalid, throw an error
-    if (!isValid) throw BadRequest('Invalid code');
+		if (!isValid) {
+			throw Unauthorized('Invalid credentials');
+		}
 
-    // burn the login request so it can't be used again
-    await this.loginRequestsRepository.delete(email);
+		const tokens = await this.pasetoService.generateTokenPair(user.id, email);
 
-    // check if the user already exists
-    const existingUser = await this.usersRepository.findOneByEmail(email);
+		return {
+			user: { id: user.id, email: user.email },
+			...tokens
+		};
+	}
 
-    // if the user exists, log them in, otherwise create a new user and log them in
-    return existingUser
-      ? this.authExistingUser({ userId: existingUser.id })
-      : this.authNewUser({ email });
-  }
+	async register({ email, password }: { email: string; password: string }) {
+		const existingUser = await this.usersRepository.findOneByEmail(email);
 
-  async sendVerificationCode({ email }: CreateLoginRequestDto) {
-    // remove any existing login requests
-    await this.loginRequestsRepository.delete(email);
+		if (existingUser) {
+			throw BadRequest('Email already registered');
+		}
 
-    // generate a new verification code and hash
-    const { verificationCode, hashedVerificationCode } =
-      await this.verificationCodesService.generateCodeWithHash();
+		const hashedPassword = await this.hashingService.hash(password);
+		const user = await this.usersService.create(email, hashedPassword);
 
-    // create a new login request
-    await this.loginRequestsRepository.set({
-      email,
-      hashedCode: hashedVerificationCode
-    });
+		await this.mailer.send({
+			to: email,
+			template: new WelcomeEmail()
+		});
 
-    // send the verification email
-    await this.mailer.send({
-      to: email,
-      template: new LoginVerificationEmail(verificationCode)
-    });
-  }
+		const tokens = await this.pasetoService.generateTokenPair(user.id, email);
 
-  private async authNewUser({ email }: { email: string }) {
-    // create a new user
-    const user = await this.usersService.create(email);
+		return {
+			user: { id: user.id, email: user.email },
+			...tokens
+		};
+	}
 
-    // send the welcome email
-    await this.mailer.send({
-      to: email,
-      template: new WelcomeEmail()
-    });
+	async verify({ email, code }: VerifyLoginRequestDto) {
+		const loginRequest = await this.loginRequestsRepository.get(email);
 
-    // create a new session
-    return this.sessionsService.createSession(user.id);
-  }
+		if (!loginRequest) throw BadRequest('Invalid code');
 
-  private async authExistingUser({ userId }: { userId: string }) {
-    return this.sessionsService.createSession(userId);
-  }
+		const isValid = await this.verificationCodesService.verify({
+			verificationCode: code,
+			hashedVerificationCode: loginRequest.hashedCode
+		});
+
+		if (!isValid) throw BadRequest('Invalid code');
+
+		await this.loginRequestsRepository.delete(email);
+
+		const existingUser = await this.usersRepository.findOneByEmail(email);
+
+		const user = existingUser ? existingUser : await this.authNewUser({ email });
+
+		const tokens = await this.pasetoService.generateTokenPair(user.id, email);
+
+		return {
+			user: { id: user.id, email: user.email },
+			...tokens
+		};
+	}
+
+	async sendVerificationCode({ email }: CreateLoginRequestDto) {
+		await this.loginRequestsRepository.delete(email);
+
+		const { verificationCode, hashedVerificationCode } =
+			await this.verificationCodesService.generateCodeWithHash();
+
+		await this.loginRequestsRepository.set({
+			email,
+			hashedCode: hashedVerificationCode
+		});
+
+		await this.mailer.send({
+			to: email,
+			template: new LoginVerificationEmail(verificationCode)
+		});
+	}
+
+	private async authNewUser({ email }: { email: string }) {
+		const user = await this.usersService.create(email);
+
+		await this.mailer.send({
+			to: email,
+			template: new WelcomeEmail()
+		});
+
+		return user;
+	}
 }

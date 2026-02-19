@@ -1,0 +1,120 @@
+# TofuStack-bunified Plan
+
+## Repo Name
+```
+TofuStack-bunified
+```
+
+## Description
+```
+TofuStack-bunified - SvelteKit + Hono + Bun Native Auth Starter
+
+A scalable, production-ready SvelteKit starter built entirely with Bun:
+- 🔐 PASETO v4 Auth: Password + Magic Link login
+- ⚡ Bun Native: password hashing, UUID, S3, HTTP
+- 🗄️ Drizzle ORM + PostgreSQL
+- 🎫 Redis (bun-redis) for caching & rate limiting
+- ⚡ Hono API
+```
+
+---
+
+## Bun Native Replacements
+
+| Replace | Current | Bun Native |
+|---------|---------|------------|
+| Password Hashing | argon2 | `Bun.password.hash/verify` |
+| UUID Generation | nanoid | `crypto.randomUUID()` |
+| S3/Storage | minio | `bun:s3` or `@aws-sdk/client-s3` |
+| Date Parsing | dayjs | Native `Date` |
+| HTTP Fetch | node-fetch | Native `fetch()` |
+
+---
+
+## Dependencies - Keep
+
+| Package | Purpose |
+|---------|---------|
+| svelte, @sveltejs/kit | Frontend |
+| hono | API Framework |
+| drizzle-orm, drizzle-kit | Database ORM |
+| paseto-ts | Token encryption |
+| zod | Validation |
+| @needle-di/core | Dependency Injection |
+| hono-rate-limiter | Rate limiting |
+
+---
+
+## Dependencies - Replace/Remove
+
+| Package | Replace With |
+|---------|-------------|
+| argon2 | Bun.password (native) |
+| nanoid | crypto.randomUUID() |
+| minio | bun:s3 |
+| ioredis | bun-redis |
+| dayjs | Native Date |
+| sharp | Keep (no Bun alternative) |
+
+---
+
+## Auth Flow
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Password Login                                     │
+│  POST /api/iam/login                               │
+│  { email, password } → PASETO tokens              │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  Magic Link (Passwordless)                         │
+│  POST /api/iam/login/request → Code to email       │
+│  POST /api/iam/login/verify → PASETO tokens        │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  Token Refresh                                     │
+│  POST /api/iam/tokens/refresh                      │
+│  (refresh token in HTTP-only cookie)              │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | /api/iam/register | Register with email + password |
+| POST | /api/iam/login | Login with email + password |
+| POST | /api/iam/login/request | Request magic link code |
+| POST | /api/iam/login/verify | Verify magic link code |
+| POST | /api/iam/tokens/refresh | Refresh access token |
+| POST | /api/iam/tokens/logout | Logout |
+
+---
+
+## Infrastructure
+
+```
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│  PostgreSQL  │  │    Redis     │  │     S3       │
+│  (Drizzle)  │  │  (bun-redis) │  │   (bun:s3)   │
+├──────────────┤  ├──────────────┤  ├──────────────┤
+│  • Users     │  │  • Codes     │  │  • Avatars   │
+│  • Data      │  │  • Cache     │  │  • Files     │
+└──────────────┘  │  • Rate limit│  └──────────────┘
+                  └──────────────┘
+```
+
+---
+
+## Migration Steps
+
+1. Replace argon2 → Bun.password
+2. Replace nanoid → crypto.randomUUID()
+3. Replace minio → bun:s3
+4. Replace ioredis → bun-redis
+5. Remove dayjs, use native Date
+6. Clean up package.json

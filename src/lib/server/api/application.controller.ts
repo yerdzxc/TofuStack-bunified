@@ -8,11 +8,13 @@ import { generateId } from './common/utils/crypto';
 import { UsersController } from './users/users.controller';
 import { browserSessions } from './common/middleware/browser-session.middleware';
 import { IamController } from './iam/iam.controller';
+import { TokensController } from './iam/tokens/tokens.controller';
 
 @injectable()
 export class ApplicationController extends RootController {
 	constructor(
 		private iamController = inject(IamController),
+		private tokensController = inject(TokensController),
 		private usersController = inject(UsersController)
 	) {
 		super();
@@ -40,6 +42,7 @@ export class ApplicationController extends RootController {
 			.use(sessionManagement)
 			.route('/', this.routes())
 			.route('/iam', this.iamController.routes())
+			.route('/iam/tokens', this.tokensController.routes())
 			.route('/users', this.usersController.routes());
 	}
 }

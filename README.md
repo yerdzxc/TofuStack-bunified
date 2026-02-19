@@ -24,6 +24,75 @@ export const DELETE: RequestHandler = ({ request }) => app.fetch(request);
 export const POST: RequestHandler = ({ request }) => app.fetch(request);
 ```
 
+## Authentication API
+
+All auth endpoints are under `/api/iam`
+
+### Password Login
+
+```bash
+# Register
+POST /api/iam/register
+{ "email": "user@example.com", "password": "password123" }
+
+# Login
+POST /api/iam/login
+{ "email": "user@example.com", "password": "password123" }
+
+# Response
+{
+  "user": { "id": "...", "email": "user@example.com" },
+  "accessToken": "v4.local...",
+  "expiresIn": 3600
+}
+# Refresh token set in HTTP-only cookie
+```
+
+### Magic Link Login (Passwordless)
+
+```bash
+# Request code
+POST /api/iam/login/request
+{ "email": "user@example.com" }
+
+# Verify code
+POST /api/iam/login/verify
+{ "email": "user@example.com", "code": "123456" }
+
+# Response same as password login
+```
+
+### Token Refresh
+
+```bash
+# Web (uses cookie)
+POST /api/iam/tokens/refresh
+{}
+
+# Mobile (send refresh token)
+POST /api/iam/tokens/refresh
+{ "refreshToken": "v4.local..." }
+
+# Response
+{
+  "accessToken": "v4.local...",
+  "expiresIn": 3600
+}
+```
+
+### Logout
+
+```bash
+POST /api/iam/tokens/logout
+```
+
+### Protected Routes
+
+```bash
+# Include access token in header
+Authorization: Bearer v4.local...
+```
+
 ## Library Selection
 
 My selection of libraries are just what I've found success, **stable** and high cohesion with. This repo should just serve as a guide as to whats possible; not what libary is the best.
@@ -42,26 +111,24 @@ My selection of libraries are just what I've found success, **stable** and high 
 
 #### Frontend
 
-- **[Sveltekit](https://kit.svelte.dev/)**: After trying Vue, React, Next, and pretty much every frotnend framework in the JS ecosystem, its safe to say I vastly prefer Svelte and its priority of building on web standards. 
+- **[Sveltekit](https://kit.svelte.dev/)**: After trying Vue, React, Next, and pretty much every frotnend framework in the JS ecosystem, its safe to say I vastly prefer Svelte and its priority of building on web standards.
 
 #### Dependency Injection
 
 - **[TSyringe](https://github.com/microsoft/tsyringe)**: Lightweight dependency injection for JS/TS. If you're familiar with TypeDI, this is essentially the same but actively maintained and used by Microsoft.
 
-## Architecture 
+## Architecture
 
 We have a few popular architectures for structuring backends
-* Technical
-* Clean/Onion
-* Domain Driven Design(DDD)/Vertical Slice Architecture(VSA)
+
+- Technical
+- Clean/Onion
+- Domain Driven Design(DDD)/Vertical Slice Architecture(VSA)
 
 I choose to start with organizing my backends by technical imeplementions and evolve into one of the others as the project evolves. You don't have to strictly stick to any specific architecture, but they do serve as good guidelines. Alternatively, move things around until it feels right.
-
 
 ## Testing
 
 Testing probably isn't first and foremost when creating an app. Thats fine. You shoulkdn't be spending time writing tests if your app is changing and pivoting.
 
 BUT a good stack should be **testable** when the time to solidify a codebase arrives. I created this stack with that pinciple in mind. I've provided a examples of how to write these tests under `authentication.service.test.ts` or `users.service.test.ts`
-
-

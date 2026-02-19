@@ -22,14 +22,12 @@ export class UsersController extends Controller {
 
 	routes() {
 		return this.controller
-			.get('/me', async (c) => {
-				const session = c.var.session;
-				const user = session ? await this.usersRepository.findOneByIdOrThrow(session.userId) : null;
+			.get('/me', authState('session'), async (c) => {
+				const user = await this.usersRepository.findOneByIdOrThrow(c.var.user!.sub);
 				return c.json(user);
 			})
 			.patch('/me', authState('session'), zValidator('form', updateUserDto), async (c) => {
-				const user = await this.usersService.update(c.var.session.userId, c.req.valid('form'));
-				// const user = await this.usersRepository.findOneByIdOrThrow(c.var.session.id);
+				const user = await this.usersService.update(c.var.user!.sub, c.req.valid('form'));
 				return c.json(user);
 			})
 			.post(
@@ -39,7 +37,7 @@ export class UsersController extends Controller {
 				rateLimit({ limit: 5, minutes: 15 }),
 				async (c) => {
 					await this.emailChangeRequestsService.requestEmailChange(
-						c.var.session.userId,
+						c.var.user!.sub,
 						c.req.valid('json').email
 					);
 					return c.json({ message: 'Email change request sent' });
@@ -52,10 +50,10 @@ export class UsersController extends Controller {
 				rateLimit({ limit: 5, minutes: 15 }),
 				async (c) => {
 					await this.emailChangeRequestsService.verifyEmailChange(
-						c.var.session.userId,
+						c.var.user!.sub,
 						c.req.valid('json').code
 					);
-					return c.json({ message: 'Email change request sent' });
+					return c.json({ message: 'Email updated' });
 				}
 			);
 	}
