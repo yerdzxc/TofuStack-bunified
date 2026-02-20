@@ -13,9 +13,9 @@ TofuStack is a Bun-native full-stack web application with SvelteKit frontend and
 
 ### Storage
 
-- **Garage v2** - S3-compatible object storage
-  - Lightweight alternative to MinIO
-  - Runs on port 3900 (S3 API), 3901 (RPC), 3902 (WebUI), 3903 (Admin)
+- **S3-Compatible** - Uses Bun's native S3 client
+  - Supports AWS S3, Cloudflare R2, Backblaze, MinIO, Garage, and more
+  - See [docs/STORAGE.md](./docs/STORAGE.md) for configuration guide
 
 ## Dependencies
 
