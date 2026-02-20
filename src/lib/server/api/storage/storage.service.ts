@@ -25,13 +25,17 @@ export class StorageService {
 		if (!this._s3Client) {
 			const envs = this.configService.envs;
 			this._bucket = envs.STORAGE_BUCKET || 'dev';
+
+			const forcePathStyle = envs.STORAGE_FORCE_PATH_STYLE !== 'false';
+
 			this._s3Client = new S3Client({
-				endpoint: envs.STORAGE_HOST,
-				port: envs.STORAGE_PORT,
-				accessKeyId: envs.STORAGE_ACCESS_KEY,
-				secretAccessKey: envs.STORAGE_SECRET_KEY,
-				region: 'garage',
-				forcePathStyle: true
+				endpoint: envs.STORAGE_HOST || 'localhost',
+				port: envs.STORAGE_PORT || 0,
+				accessKeyId: envs.STORAGE_ACCESS_KEY || '',
+				secretAccessKey: envs.STORAGE_SECRET_KEY || '',
+				region: envs.STORAGE_REGION || 'auto',
+				forcePathStyle,
+				...(envs.STORAGE_URL_STYLE && { urlStyle: envs.STORAGE_URL_STYLE })
 			});
 		}
 		return this._s3Client;
@@ -45,7 +49,10 @@ export class StorageService {
 	}
 
 	async configure() {
-		console.info(`Storage configured with S3 bucket: ${this.bucket}`);
+		const envs = this.configService.envs;
+		console.info(
+			`Storage configured: ${envs.STORAGE_BUCKET} @ ${envs.STORAGE_HOST}:${envs.STORAGE_PORT}`
+		);
 	}
 
 	async upload({ file, resizeOptions, key }: Upload) {

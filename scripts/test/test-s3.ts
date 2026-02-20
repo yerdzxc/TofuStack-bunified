@@ -1,21 +1,25 @@
-// Test Garage S3 upload - matches actual storage.service.ts
-console.log('🧪 Testing Garage S3 upload...\n');
+// Test S3 upload - supports any S3-compatible storage
+console.log('🧪 Testing S3 upload...\n');
 
+const ENDPOINT = process.env.STORAGE_HOST || 'localhost';
+const PORT = process.env.STORAGE_PORT || 3900;
+const REGION = process.env.STORAGE_REGION || 'auto';
 const KEY_ID = process.env.STORAGE_ACCESS_KEY;
 const SECRET = process.env.STORAGE_SECRET_KEY;
-const ENDPOINT = `http://${process.env.STORAGE_HOST}:${process.env.STORAGE_PORT}`;
 const BUCKET = process.env.STORAGE_BUCKET || 'dev';
+const FORCE_PATH_STYLE = process.env.STORAGE_FORCE_PATH_STYLE !== 'false';
 
-console.log('Config:', { ENDPOINT, BUCKET });
+console.log('Config:', { ENDPOINT, PORT, REGION, BUCKET, FORCE_PATH_STYLE });
 
 const { S3Client } = await import('bun');
 
 const s3 = new S3Client({
 	endpoint: ENDPOINT,
+	port: PORT,
 	accessKeyId: KEY_ID,
 	secretAccessKey: SECRET,
-	region: 'garage',
-	forcePathStyle: true
+	region: REGION,
+	forcePathStyle: FORCE_PATH_STYLE
 });
 
 const testKey = 'test-' + Date.now() + '.txt';
