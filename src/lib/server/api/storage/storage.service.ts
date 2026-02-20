@@ -1,13 +1,17 @@
 import { inject, injectable } from '@needle-di/core';
 import { S3Client } from 'bun';
+import { Transformer } from '@napi-rs/image';
 import { ConfigService } from '../common/configs/config.service';
 import { generateId } from '../common/utils/crypto';
-import sharp, { type ResizeOptions } from 'sharp';
 
 type Upload = {
 	file: File;
 	key?: string;
-	resizeOptions?: ResizeOptions;
+	resizeOptions?: {
+		width?: number;
+		height?: number;
+		fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside';
+	};
 };
 
 @injectable()
@@ -50,8 +54,30 @@ export class StorageService {
 		await this.s3Client.unlink(`s3://${this.bucket}/${key}`);
 	}
 
-	private async resizeImage(fileBuffer: Buffer, resizeOptions: ResizeOptions) {
-		return sharp(fileBuffer).resize(resizeOptions).toBuffer();
+	private async resizeImage(fileBuffer: Buffer, resizeOptions: { width?: number; height?: number; fit?: 'cover' | 'contain' | 'fill' | 'inside' | 'outside' }) {
+		const transformer = new Transformer(fileBuffer);
+		const metadata = await transformer.metadata();
+		
+		const width = resizeOptions.width ?? 0;
+		const height = resizeOptions.height ?? 0;
+		
+		let resized = transformer.resize(width, height);
+		
+		switch (metadata.format) {
+			case 'png':
+				return resized.png();
+			case 'jpeg':
+			case 'jpg':
+				return resized.jpeg(90);
+			case 'webp':
+				return resized.webp(90);
+			case 'avif':
+				return resized.avif({ quality: 90 });
+			case 'gif':
+				return resized.png();
+			default:
+				return resized.png();
+		}
 	}
 
 	private async convertToBuffer(file: File) {

@@ -23,10 +23,10 @@
 		"@dicebear/core": "^9.2.2",
 		"@internationalized/date": "^3.6.0",
 		"@playwright/test": "^1.49.1",
-		"@sveltejs/adapter-auto": "^3.3.1",
+		"@sveltejs/adapter-auto": "^7.0.1",
 		"@sveltejs/adapter-node": "^5.2.11",
-		"@sveltejs/kit": "^2.15.1",
-		"@sveltejs/vite-plugin-svelte": "^5.0.3",
+		"@sveltejs/kit": "^2.52.2",
+		"@sveltejs/vite-plugin-svelte": "^6.2.4",
 		"@tailwindcss/aspect-ratio": "^0.4.2",
 		"@tailwindcss/container-queries": "^0.1.1",
 		"@tailwindcss/forms": "^0.5.9",
@@ -54,8 +54,7 @@
 		"prettier": "^3.4.2",
 		"prettier-plugin-svelte": "^3.3.2",
 		"prettier-plugin-tailwindcss": "^0.6.9",
-		"svelte": "^5.16.0",
-		"svelte-adapter-bun": "^1.0.1",
+		"svelte": "^5.53.0",
 		"svelte-check": "^4.1.1",
 		"svelte-sonner": "^0.3.28",
 		"sveltekit-superforms": "^2.22.1",
@@ -66,19 +65,21 @@
 		"typescript": "^5.7.2",
 		"typescript-eslint": "^8.18.2",
 		"vaul-svelte": "1.0.0-next.3",
-		"vite": "^6.0.6",
+		"vite": "^7.3.1",
 		"vitest": "^2.1.8",
 		"zod": "^3.24.1"
 	},
 	"dependencies": {
 		"@hono/zod-validator": "^0.4.2",
+		"@napi-rs/image": "^1.9.5",
 		"@needle-di/core": "^0.8.4",
 		"drizzle-orm": "^0.38.3",
+		"express": "^5.2.1",
+		"express-rate-limit": "^8.2.1",
 		"hono": "^4.6.14",
 		"hono-rate-limiter": "^0.4.2",
 		"paseto-ts": "^2.0.5",
 		"pg-pool": "^3.7.0",
-		"rate-limit-redis": "^4.2.0",
-		"sharp": "^0.34.5"
+		"rate-limit-redis": "^4.2.0"
 	}
 }
