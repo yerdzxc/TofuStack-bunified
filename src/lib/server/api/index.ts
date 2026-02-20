@@ -2,16 +2,25 @@ import { Container } from '@needle-di/core';
 import { ApplicationModule } from './application.module';
 import { ApplicationController } from './application.controller';
 
-const applicationController = new Container().get(ApplicationController);
-const applicationModule = new Container().get(ApplicationModule);
+const container = new Container();
+
+function getApplicationController() {
+	return container.get(ApplicationController);
+}
+
+function getApplicationModule() {
+	return container.get(ApplicationModule);
+}
 
 /* ------------------------------ startServer ------------------------------ */
 export function startServer() {
-	return applicationModule.start();
+	return getApplicationModule().start();
 }
 
 /* ----------------------------------- api ---------------------------------- */
-export const routes = applicationController.registerControllers();
+export function getRoutes() {
+	return getApplicationController().registerControllers();
+}
 
 /* ---------------------------------- Types --------------------------------- */
-export type ApiRoutes = typeof routes;
+export type ApiRoutes = ReturnType<typeof getRoutes>;

@@ -54,7 +54,7 @@ A scalable, production-ready SvelteKit starter built entirely with Bun:
 | minio | bun:s3 |
 | ioredis | bun-redis |
 | dayjs | Native Date |
-| sharp | Keep (no Bun alternative) |
+| @napi-rs/image | Done ✅ |
 
 ---
 

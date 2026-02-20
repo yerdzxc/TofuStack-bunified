@@ -37,7 +37,7 @@ TofuStack is a Bun-native full-stack web application with SvelteKit frontend and
 | `hono-rate-limiter` | Rate limiting                 |
 | `rate-limit-redis`  | Redis store for rate limiting |
 | `drizzle`           | SQL query builder             |
-| `sharp`             | Image processing              |
+| `@napi-rs/image`    | Image processing              |
 | `@needle-di/core`   | Dependency injection          |
 
 ## Scripts

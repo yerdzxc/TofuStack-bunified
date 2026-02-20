@@ -1,22 +1,23 @@
 import { injectable } from '@needle-di/core';
 import { z } from 'zod';
 import { type EnvsDto, envsDto } from './dtos/env.dto';
-import * as envs from '$env/static/private';
 
 @injectable()
 export class ConfigService {
 	envs: EnvsDto;
 
 	constructor() {
-		this.envs = this.parseEnvs()!;
+		this.envs = this.parseEnvs();
 	}
 
 	private parseEnvs() {
-		return envsDto.parse(envs);
+		return envsDto.parse({});
 	}
 
 	validateEnvs() {
 		try {
+			// eslint-disable-next-line @typescript-eslint/no-var-requires
+			const envs = require('$env/static/private');
 			return envsDto.parse(envs);
 		} catch (err) {
 			if (err instanceof z.ZodError) {

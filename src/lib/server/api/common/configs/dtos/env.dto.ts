@@ -1,16 +1,17 @@
 import { z } from 'zod';
 
 export const envsDto = z.object({
-	DATABASE_URL: z.string(),
-	REDIS_URL: z.string(),
-	SIGNING_SECRET: z.string(),
-	PASETO_LOCAL_KEY_PASERK: z.string(),
-	ENV: z.enum(['dev', 'prod']),
-	PORT: z.number({ coerce: true }),
-	STORAGE_HOST: z.string(),
-	STORAGE_PORT: z.number({ coerce: true }),
-	STORAGE_ACCESS_KEY: z.string(),
-	STORAGE_SECRET_KEY: z.string(),
+	DATABASE_URL: z.string().optional(),
+	REDIS_URL: z.string().optional(),
+	SIGNING_SECRET: z.string().optional(),
+	PASETO_LOCAL_KEY_PASERK: z.string().optional(),
+	ENV: z.enum(['dev', 'prod']).default('dev'),
+	PACKAGE_NAME: z.string().optional(),
+	0: z.string().optional(),
+	STORAGE_HOST: z.string().optional(),
+	STORAGE_PORT: z.number({ coerce: true }).optional(),
+	STORAGE_ACCESS_KEY: z.string().optional(),
+	STORAGE_SECRET_KEY: z.string().optional(),
 	STORAGE_BUCKET: z.string().default('dev')
 });
 
